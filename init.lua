@@ -165,6 +165,25 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
         loop = false,
       }
   )
+  local muzzle_position = player_metadata:get_weapon_muzzle_position()
+  local muzzle_direction = player_metadata:get_weapon_muzzle_direction()
+  local muzzle_velocity = { x = math.cos(muzzle_direction.x) * weapon_metadata.muzzle_velocity, y = muzzle_direction.y * weapon_metadata.muzzle_velocity, z = math.sin(muzzle_direction.x) * weapon_metadata.muzzle_velocity }
+  minetest.add_particlespawner({
+    amount = 1,
+    time = 0.1,
+    minpos = { x = muzzle_position.x, y = muzzle_position.y, z = muzzle_position.z },
+    maxpos = { x = muzzle_position.x, y = muzzle_position.y, z = muzzle_position.z },
+    minvel = muzzle_velocity,
+    maxvel = muzzle_velocity,
+    minacc = { x = 0, y = -9.8, z = 0 },
+    maxacc = { x = 0, y = -9.8, z = 0 },
+    minexptime = 0,
+    maxexptime = 3,
+    minsize = 1,
+    maxsize = 1,
+    collisiondetection = true,
+    texture = "bullet.png"
+  })
 end
 
 --Register Weapons---------------------------------
@@ -172,6 +191,7 @@ end
 first_person_shooter.register_weapon("first_person_shooter:m1_garand", {
   description = "M1 Garand",
   icon = "m1_garand_icon.png",
+  muzzle_velocity = 100,
   animation_framerate = 60,
   animations = {
     ["idle"] = {
@@ -209,6 +229,7 @@ first_person_shooter.register_weapon("first_person_shooter:m1_garand", {
 first_person_shooter.register_weapon("first_person_shooter:m1911", {
   description = "M1911",
   icon = "m1911_icon.png",
+  muzzle_velocity = 30,
   animation_framerate = 60,
   animations = {
     ["idle"] = {
@@ -272,6 +293,22 @@ first_person_shooter.initialize_player = function(player)
     end,
     get_weapon_metadata = function(this)
       return first_person_shooter.get_weapon_metadata(this.player:get_wielded_item():get_name())
+    end,
+    get_weapon_muzzle_position = function(this)
+      local horizontal_look_direction = this.player:get_look_horizontal() + math.pi / 2
+      local vertical_look_direction = this.player:get_look_vertical()
+      local player_position = this.player:get_pos()
+      return {
+        x = player_position.x + math.cos(horizontal_look_direction),
+        y = player_position.y + 1 - vertical_look_direction,
+        z = player_position.z + math.sin(horizontal_look_direction),
+      }
+    end,
+    get_weapon_muzzle_direction = function(this)
+      return {
+        x = this.player:get_look_horizontal() + math.pi / 2,
+        y = -this.player:get_look_vertical()
+      }
     end,
   }
 end
