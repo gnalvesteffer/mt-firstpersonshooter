@@ -22,6 +22,8 @@ end
 --Core---------------------------------------------
 
 first_person_shooter = {}
+first_person_shooter.tick_rate = 60
+first_person_shooter.last_update_time = 0
 first_person_shooter.maximum_speed_smoothing_samples = 3
 first_person_shooter.players_metadata = {}
 first_person_shooter.registered_weapons = {}
@@ -170,7 +172,7 @@ end
 first_person_shooter.register_weapon("first_person_shooter:m1_garand", {
   description = "M1 Garand",
   icon = "m1_garand_icon.png",
-  animation_framerate = 45,
+  animation_framerate = 60,
   animations = {
     ["idle"] = {
       texture_prefix = "m1_garand_idle",
@@ -207,7 +209,7 @@ first_person_shooter.register_weapon("first_person_shooter:m1_garand", {
 first_person_shooter.register_weapon("first_person_shooter:m1911", {
   description = "M1911",
   icon = "m1911_icon.png",
-  animation_framerate = 45,
+  animation_framerate = 60,
   animations = {
     ["idle"] = {
       texture_prefix = "m1911_idle",
@@ -387,7 +389,10 @@ end
 first_person_shooter.update = function(deltaTime)
   first_person_shooter.update_players(deltaTime)
   first_person_shooter.update_projectiles(deltaTime)
+  local current_time = minetest.get_server_uptime()
+  minetest.after(1 / first_person_shooter.tick_rate, first_person_shooter.update, current_time - first_person_shooter.last_update_time)
+  first_person_shooter.last_update_time = current_time
 end
 
 minetest.register_on_joinplayer(first_person_shooter.initialize_player)
-minetest.register_globalstep(first_person_shooter.update)
+first_person_shooter.update()
