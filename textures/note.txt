@@ -1,0 +1,7 @@
+https://forum.zdoom.org/viewtopic.php?t=38067
+
+Reload starts after Fire6 frame of the last shot if the shot was normal, 
+or after backwards Aim3 in un-aiming animation if the the last shot was in aimed state, it would look like this:
+...AimFire11->aimfire12->aimIdle (check that the shot was last in this state)->aim7->aim6->aim5->aim->4->aim3->reload1-reload2->...
+
+The gun was famous for the fact that it can not be reloaded mid-magasine. (Well, you can IRL, but that is undocumented feature, that is not there in the game)
