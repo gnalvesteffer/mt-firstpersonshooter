@@ -334,6 +334,47 @@ first_person_shooter.register_weapon("first_person_shooter:m4a1", {
   },
 })
 
+first_person_shooter.register_weapon("first_person_shooter:hk53", {
+  description = "HK53",
+  icon = "m16a2_icon.png",
+  maximum_range = 100,
+  penetration_power = 0.2,
+  damage = 10,
+  is_automatic_fire = true,
+  animation_framerate = 120,
+  animations = {
+    ["idle"] = {
+      texture_prefix = "hk53_idle",
+      total_frames = 1,
+    },
+    ["aim_idle"] = {
+      texture_prefix = "hk53_aimidle",
+      total_frames = 1,
+    },
+    ["aim_transition"] = {
+      texture_prefix = "hk53_aim",
+      total_frames = 11,
+    },
+    ["fire"] = {
+      texture_prefix = "hk53_fire",
+      total_frames = 13,
+    },
+    ["aim_fire"] = {
+      texture_prefix = "hk53_aimfire",
+      total_frames = 13,
+    },
+    ["reload"] = {
+      texture_prefix = "hk53_reload",
+      total_frames = 370,
+    },
+  },
+  sounds = {
+    ["fire"] = {
+      sound_name = "hk53_fire",
+    }
+  },
+})
+
 --Player-------------------------------------------
 
 first_person_shooter.initialize_player = function(player)
