@@ -125,14 +125,7 @@ first_person_shooter.register_weapon = function(name, weapon_definition)
     range = 0,
     liquids_pointable = false,
     on_use = function(itemstack, player, pointed_thing)
-      local player_metadata = first_person_shooter.players_metadata[player:get_player_name()]
-      if player_metadata.weapon_state == "idle" then
-        player_metadata:set_weapon_state("fire")
-      else
-        if player_metadata.weapon_state == "aim_idle" then
-          player_metadata:set_weapon_state("aim_fire")
-        end
-      end
+
     end,
     on_secondary_use = function(itemstack, player, pointed_thing)
       local player_metadata = first_person_shooter.players_metadata[player:get_player_name()]
@@ -145,37 +138,24 @@ first_person_shooter.register_weapon = function(name, weapon_definition)
   })
 end
 
--- borrowed and modified from "shooter" mod by stu.
-first_person_shooter.default_particles = {
-  amount = 15,
-  time = 0.3,
-  minpos = { x = -0.1, y = -0.1, z = -0.1 },
-  maxpos = { x = 0.1, y = 0.1, z = 0.1 },
-  minvel = { x = -1, y = 1, z = -1 },
-  maxvel = { x = 1, y = 2, z = 1 },
-  minacc = { x = -2, y = -2, z = -2 },
-  maxacc = { x = 2, y = -2, z = 2 },
-  minexptime = 0.1,
-  maxexptime = 0.75,
-  minsize = 1,
-  maxsize = 2,
-  collisiondetection = false,
-  texture = "default_hit.png",
-}
-
--- borrowed and modified from "shooter" mod by stu.
-first_person_shooter.spawn_particles = function(position, particles)
-  particles = particles or {}
-  local copy = function(v)
-    return type(v) == "table" and table.copy(v) or v
-  end
-  local p = {}
-  for k, v in pairs(first_person_shooter.default_particles) do
-    p[k] = particles[k] and copy(particles[k]) or copy(v)
-  end
-  p.minpos = vector.subtract(position, p.minpos)
-  p.maxpos = vector.add(position, p.maxpos)
-  minetest.add_particlespawner(p)
+first_person_shooter.spawn_particles = function(position, particle_definition)
+  particle_definition = particle_definition or {}
+  minetest.add_particlespawner({
+    amount = particle_definition.amount or 15,
+    time = particle_definition.time or 0.3,
+    minpos = particle_definition.minpos or vector.subtract(position, { x = -0.1, y = -0.1, z = -0.1 }),
+    maxpos = particle_definition.maxpos or vector.add(position, { x = 0.1, y = 0.1, z = 0.1 }),
+    minvel = particle_definition.minvel or { x = -1, y = 1, z = -1 },
+    maxvel = particle_definition.maxvel or { x = 1, y = 5, z = 1 },
+    minacc = particle_definition.minacc or { x = -2, y = -2, z = -2 },
+    maxacc = particle_definition.maxacc or { x = 2, y = -2, z = 2 },
+    minexptime = particle_definition.minexptime or 0.1,
+    maxexptime = particle_definition.maxexptime or 0.75,
+    minsize = particle_definition.minsize or 1,
+    maxsize = particle_definition.maxsize or 2,
+    collisiondetection = particle_definition.collisiondetection or false,
+    texture = particle_definition.texture or "default_hit.png",
+  })
 end
 
 -- borrowed and modified from "shooter" mod by stu.
@@ -193,8 +173,8 @@ first_person_shooter.play_node_sound = function(node, pos)
 end
 
 -- borrowed and modified from "shooter" mod by stu.
-first_person_shooter.punch_node = function(position)
-  local node = minetest.get_node(position)
+first_person_shooter.on_node_hit = function(node_position, hit_info)
+  local node = minetest.get_node(node_position)
   if not node then
     return
   end
@@ -203,11 +183,33 @@ first_person_shooter.punch_node = function(position)
     return
   end
   if item.groups then
-    minetest.remove_node(position)
-    first_person_shooter.play_node_sound(node, position)
+    local node_metadata = minetest.get_meta(node_position)
+    local current_node_health = node_metadata:get_int("health")
+    if current_node_health == 0 then
+      current_node_health = 3 -- ToDo: look up default values based-on node type
+    end
+    local new_node_health = math.max(current_node_health - 1, 0) -- ToDo: reduce node health by projectile damage
+    node_metadata:set_int("health", new_node_health)
+    if new_node_health == 0 then
+      minetest.remove_node(node_position)
+    end
+    minetest.check_for_falling(node_position)
+    first_person_shooter.play_node_sound(node, node_position)
     if item.tiles then
       if item.tiles[1] then
-        first_person_shooter.spawn_particles(position, { texture = item.tiles[1] })
+        first_person_shooter.spawn_particles(
+            node_position,
+            {
+              texture = item.tiles[1],
+              amount = 10,
+              time = 0.05,
+              minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.muzzle_velocity * -0.001), { x = -1, y = -1, z = -1 }),
+              maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.muzzle_velocity * -0.05), { x = 1, y = 1, z = 1 }),
+              minexptime = 0.05,
+              maxexptime = 0.5,
+              minsize = 0.25,
+              maxsize = 2,
+            })
       end
     end
     --local object = minetest.add_item(position, item)
@@ -246,8 +248,12 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
   local projectile_raycast = minetest.raycast(muzzle_position, vector.add(muzzle_position, vector.multiply(muzzle_direction, 100)), true, true)
   local hit_object = projectile_raycast:next() or { type = "nothing" }
   if hit_object.type == "node" then
-    local hit_object_position = minetest.get_pointed_thing_position(hit_object, false)
-    first_person_shooter.punch_node(hit_object_position, spec)
+    local hit_node_position = minetest.get_pointed_thing_position(hit_object, false)
+    first_person_shooter.on_node_hit(hit_node_position, {
+      weapon_metadata = weapon_metadata,
+      muzzle_position = muzzle_position,
+      muzzle_direction = muzzle_direction,
+    })
   end
 end
 
@@ -257,6 +263,7 @@ first_person_shooter.register_weapon("first_person_shooter:m16a2", {
   description = "M16A2",
   icon = "m16a2_icon.png",
   muzzle_velocity = 100,
+  is_automatic_fire = true,
   animation_framerate = 120,
   animations = {
     ["idle"] = {
@@ -304,6 +311,8 @@ first_person_shooter.initialize_player = function(player)
     life_time = 0,
     weapon_state = "idle",
     weapon_state_time = 0,
+    has_requested_to_fire = false,
+    has_handled_previous_fire_request = false,
     movement_amount = 0,
     speed_smoothing_samples = speed_smoothing_samples,
     get_average_speed = function(this)
@@ -401,6 +410,20 @@ first_person_shooter.update_players = function(deltaTime)
         wielditem = false,
         breathbar = false,
       })
+    end
+
+    -- handle automatic fire
+    player_metadata.has_requested_to_fire = player_metadata.player:get_player_control().LMB and player_metadata.has_handled_previous_fire_request or weapon_metadata.is_automatic_fire
+    player_metadata.has_handled_previous_fire_request = false
+    if player_metadata.has_requested_to_fire then
+      if player_metadata.weapon_state == "idle" then
+        player_metadata:set_weapon_state("fire")
+      else
+        if player_metadata.weapon_state == "aim_idle" then
+          player_metadata:set_weapon_state("aim_fire")
+        end
+      end
+      player_metadata.has_handled_previous_fire_request = true
     end
 
     player_metadata.life_time = player_metadata.life_time + deltaTime
