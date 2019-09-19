@@ -185,9 +185,9 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
     local node_metadata = minetest.get_meta(node_position)
     local current_node_health = node_metadata:get_int("health")
     if current_node_health == 0 then
-      current_node_health = 3 -- ToDo: look up default values based-on node type
+      current_node_health = 100 -- ToDo: look up default values based-on node type
     end
-    local new_node_health = math.max(current_node_health - 1, 0) -- ToDo: reduce node health by projectile damage
+    local new_node_health = math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
     node_metadata:set_int("health", new_node_health)
     if new_node_health == 0 then
       minetest.remove_node(node_position)
@@ -202,8 +202,8 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
               texture = item.tiles[1],
               amount = 10,
               time = 0.05,
-              minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.muzzle_velocity * -0.001), { x = -1, y = -1, z = -1 }),
-              maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.muzzle_velocity * -0.05), { x = 1, y = 1, z = 1 }),
+              minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.01), { x = -1, y = -1, z = -1 }),
+              maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.5), { x = 1, y = 1, z = 1 }),
               minexptime = 0.05,
               maxexptime = 0.5,
               minsize = 0.25,
@@ -238,7 +238,7 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
   )
   local muzzle_position = player_metadata:get_weapon_muzzle_position()
   local muzzle_direction = player_metadata:get_weapon_muzzle_direction()
-  local projectile_raycast = minetest.raycast(muzzle_position, vector.add(muzzle_position, vector.multiply(muzzle_direction, 100)), true, true)
+  local projectile_raycast = minetest.raycast(muzzle_position, vector.add(muzzle_position, vector.multiply(muzzle_direction, weapon_metadata.maximum_range)), true, true)
   local hit_object = projectile_raycast:next() or { type = "nothing" }
   if hit_object.type == "node" then
     local hit_node_position = minetest.get_pointed_thing_position(hit_object, false)
@@ -255,7 +255,9 @@ end
 first_person_shooter.register_weapon("first_person_shooter:m16a2", {
   description = "M16A2",
   icon = "m16a2_icon.png",
-  muzzle_velocity = 100,
+  maximum_range = 300,
+  penetration_power = 1,
+  damage = 10,
   is_automatic_fire = true,
   animation_framerate = 120,
   animations = {
@@ -406,10 +408,10 @@ first_person_shooter.update_players = function(deltaTime)
     end
 
     if player_metadata.player:get_player_control().LMB then
-      player_metadata.is_firing = not player_metadata.has_handled_previous_fire_request or weapon_metadata.is_automatic_fire
+      player_metadata.is_firing = not player_metadata.has_fired_last_tick or weapon_metadata.is_automatic_fire
     else
       player_metadata.is_firing = false
-      player_metadata.has_handled_previous_fire_request = false
+      player_metadata.has_fired_last_tick = false
     end
     if player_metadata.is_firing then
       if player_metadata.weapon_state == "idle" then
@@ -419,7 +421,7 @@ first_person_shooter.update_players = function(deltaTime)
           player_metadata:set_weapon_state("aim_fire")
         end
       end
-      player_metadata.has_handled_previous_fire_request = true
+      player_metadata.has_fired_last_tick = true
     end
 
     player_metadata.life_time = player_metadata.life_time + deltaTime
