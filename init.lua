@@ -256,7 +256,7 @@ first_person_shooter.register_weapon("first_person_shooter:m16a2", {
   description = "M16A2",
   icon = "m16a2_icon.png",
   maximum_range = 300,
-  penetration_power = 1,
+  penetration_power = 2,
   damage = 10,
   is_automatic_fire = true,
   animation_framerate = 120,
@@ -289,6 +289,47 @@ first_person_shooter.register_weapon("first_person_shooter:m16a2", {
   sounds = {
     ["fire"] = {
       sound_name = "m16a2_fire",
+    }
+  },
+})
+
+first_person_shooter.register_weapon("first_person_shooter:m4a1", {
+  description = "M4A1",
+  icon = "m16a2_icon.png",
+  maximum_range = 150,
+  penetration_power = 1,
+  damage = 7,
+  is_automatic_fire = true,
+  animation_framerate = 120,
+  animations = {
+    ["idle"] = {
+      texture_prefix = "m4a1_idle",
+      total_frames = 1,
+    },
+    ["aim_idle"] = {
+      texture_prefix = "m4a1_aimidle",
+      total_frames = 1,
+    },
+    ["aim_transition"] = {
+      texture_prefix = "m4a1_aim",
+      total_frames = 11,
+    },
+    ["fire"] = {
+      texture_prefix = "m4a1_fire",
+      total_frames = 11,
+    },
+    ["aim_fire"] = {
+      texture_prefix = "m4a1_aimfire",
+      total_frames = 11,
+    },
+    ["reload"] = {
+      texture_prefix = "m4a1_reload",
+      total_frames = 210,
+    },
+  },
+  sounds = {
+    ["fire"] = {
+      sound_name = "m4a1_fire",
     }
   },
 })
