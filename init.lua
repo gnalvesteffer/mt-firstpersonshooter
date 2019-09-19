@@ -412,9 +412,14 @@ first_person_shooter.update_players = function(deltaTime)
       })
     end
 
-    -- handle automatic fire
-    player_metadata.has_requested_to_fire = player_metadata.player:get_player_control().LMB and player_metadata.has_handled_previous_fire_request or weapon_metadata.is_automatic_fire
-    player_metadata.has_handled_previous_fire_request = false
+    if player_metadata.player:get_player_control().LMB then
+      player_metadata.has_requested_to_fire = player_metadata.has_handled_previous_fire_request or weapon_metadata.is_automatic_fire
+      player_metadata.has_handled_previous_fire_request = false
+    else
+      player_metadata.has_requested_to_fire = false
+      player_metadata.has_handled_previous_fire_request = false
+    end
+
     if player_metadata.has_requested_to_fire then
       if player_metadata.weapon_state == "idle" then
         player_metadata:set_weapon_state("fire")
