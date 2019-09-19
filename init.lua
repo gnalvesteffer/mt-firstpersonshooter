@@ -22,7 +22,7 @@ end
 --Core---------------------------------------------
 
 first_person_shooter = {}
-first_person_shooter.tick_rate = 60
+first_person_shooter.tick_rate = 120
 first_person_shooter.last_update_time = 0
 first_person_shooter.maximum_speed_smoothing_samples = 3
 first_person_shooter.players_metadata = {}
@@ -188,78 +188,40 @@ end
 
 --Register Weapons---------------------------------
 
-first_person_shooter.register_weapon("first_person_shooter:m1_garand", {
-  description = "M1 Garand",
-  icon = "m1_garand_icon.png",
+first_person_shooter.register_weapon("first_person_shooter:m16a2", {
+  description = "M16A2",
+  icon = "m16a2_icon.png",
   muzzle_velocity = 100,
-  animation_framerate = 60,
+  animation_framerate = 120,
   animations = {
     ["idle"] = {
-      texture_prefix = "m1_garand_idle",
+      texture_prefix = "m16a2_idle",
       total_frames = 1,
     },
     ["aim_idle"] = {
-      texture_prefix = "m1_garand_aimidle",
+      texture_prefix = "m16a2_aimidle",
       total_frames = 1,
     },
     ["aim_transition"] = {
-      texture_prefix = "m1_garand_aim",
-      total_frames = 7,
-    },
-    ["fire"] = {
-      texture_prefix = "m1_garand_fire",
-      total_frames = 12,
-    },
-    ["aim_fire"] = {
-      texture_prefix = "m1_garand_aimfire",
-      total_frames = 12,
-    },
-    ["reload"] = {
-      texture_prefix = "m1_garand_reload",
-      total_frames = 83,
-    },
-  },
-  sounds = {
-    ["fire"] = {
-      sound_name = "m1_garand_fire",
-    }
-  },
-})
-
-first_person_shooter.register_weapon("first_person_shooter:m1911", {
-  description = "M1911",
-  icon = "m1911_icon.png",
-  muzzle_velocity = 30,
-  animation_framerate = 60,
-  animations = {
-    ["idle"] = {
-      texture_prefix = "m1911_idle",
-      total_frames = 1,
-    },
-    ["aim_idle"] = {
-      texture_prefix = "m1911_aimidle",
-      total_frames = 1,
-    },
-    ["aim_transition"] = {
-      texture_prefix = "m1911_aim",
-      total_frames = 7,
-    },
-    ["fire"] = {
-      texture_prefix = "m1911_fir",
-      total_frames = 10,
-    },
-    ["aim_fire"] = {
-      texture_prefix = "m1911_aimfir",
+      texture_prefix = "m16a2_aim",
       total_frames = 11,
     },
+    ["fire"] = {
+      texture_prefix = "m16a2_fire",
+      total_frames = 12,
+    },
+    ["aim_fire"] = {
+      texture_prefix = "m16a2_aimfire",
+      total_frames = 12,
+    },
     ["reload"] = {
-      texture_prefix = "m1911_reload",
-      total_frames = 51,
+      texture_prefix = "m16a2_idle",
+      total_frames = 1,
     },
   },
   sounds = {
     ["fire"] = {
-      sound_name = "m1911_fire",
+      sound_name = "m16a2_fire",
     }
   },
 })
@@ -401,7 +363,7 @@ first_person_shooter.update_players = function(deltaTime)
     player_metadata.player:hud_remove(player_metadata.weapon_hud_element)
     player_metadata.weapon_hud_element = player_metadata.player:hud_add({
       hud_elem_type = "image",
-      text = animation_data.weapon_state_animation.texture_prefix .. animation_data.frame_number .. ".png",
+      text = animation_data.weapon_state_animation.texture_prefix .. "." .. animation_data.frame_number .. ".png",
       position = {
         x = 0.5 - breathing_x_offset - movement_x_offset,
         y = 0.55 - breathing_y_offset - movement_y_offset
