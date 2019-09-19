@@ -27,7 +27,6 @@ first_person_shooter.last_update_time = 0
 first_person_shooter.maximum_speed_smoothing_samples = 3
 first_person_shooter.players_metadata = {}
 first_person_shooter.registered_weapons = {}
-first_person_shooter.projectiles = {}
 
 first_person_shooter.get_weapon_metadata = function(weapon_name)
   return first_person_shooter.registered_weapons[weapon_name]
@@ -221,12 +220,6 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
     --  })
     --end
   end
-end
-
-first_person_shooter.spawn_projectile = function()
-  local projectile = {}
-  first_person_shooter.projectiles.insert(projectile)
-  return projectile
 end
 
 first_person_shooter.on_weapon_fire = function(player_metadata)
@@ -472,13 +465,8 @@ first_person_shooter.update_players = function(deltaTime)
   end
 end
 
-first_person_shooter.update_projectiles = function(deltaTime)
-
-end
-
 first_person_shooter.update = function(deltaTime)
   first_person_shooter.update_players(deltaTime)
-  first_person_shooter.update_projectiles(deltaTime)
   local current_time = minetest.get_server_uptime()
   minetest.after(1 / first_person_shooter.tick_rate, first_person_shooter.update, current_time - first_person_shooter.last_update_time)
   first_person_shooter.last_update_time = current_time
