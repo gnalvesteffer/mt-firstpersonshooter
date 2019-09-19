@@ -22,7 +22,7 @@ end
 --Core---------------------------------------------
 
 first_person_shooter = {}
-first_person_shooter.tick_rate = 120
+first_person_shooter.tick_rate = 60
 first_person_shooter.last_update_time = 0
 first_person_shooter.maximum_speed_smoothing_samples = 3
 first_person_shooter.players_metadata = {}
@@ -145,6 +145,82 @@ first_person_shooter.register_weapon = function(name, weapon_definition)
   })
 end
 
+-- borrowed and modified from "shooter" mod by stu.
+first_person_shooter.default_particles = {
+  amount = 15,
+  time = 0.3,
+  minpos = { x = -0.1, y = -0.1, z = -0.1 },
+  maxpos = { x = 0.1, y = 0.1, z = 0.1 },
+  minvel = { x = -1, y = 1, z = -1 },
+  maxvel = { x = 1, y = 2, z = 1 },
+  minacc = { x = -2, y = -2, z = -2 },
+  maxacc = { x = 2, y = -2, z = 2 },
+  minexptime = 0.1,
+  maxexptime = 0.75,
+  minsize = 1,
+  maxsize = 2,
+  collisiondetection = false,
+  texture = "default_hit.png",
+}
+
+-- borrowed and modified from "shooter" mod by stu.
+first_person_shooter.spawn_particles = function(position, particles)
+  particles = particles or {}
+  local copy = function(v)
+    return type(v) == "table" and table.copy(v) or v
+  end
+  local p = {}
+  for k, v in pairs(first_person_shooter.default_particles) do
+    p[k] = particles[k] and copy(particles[k]) or copy(v)
+  end
+  p.minpos = vector.subtract(position, p.minpos)
+  p.maxpos = vector.add(position, p.maxpos)
+  minetest.add_particlespawner(p)
+end
+
+-- borrowed and modified from "shooter" mod by stu.
+first_person_shooter.play_node_sound = function(node, pos)
+  local item = minetest.registered_items[node.name]
+  if item then
+    if item.sounds then
+      local spec = item.sounds.dug
+      if spec then
+        spec.pos = pos
+        minetest.sound_play(spec.name, spec)
+      end
+    end
+  end
+end
+
+-- borrowed and modified from "shooter" mod by stu.
+first_person_shooter.punch_node = function(position)
+  local node = minetest.get_node(position)
+  if not node then
+    return
+  end
+  local item = minetest.registered_items[node.name]
+  if not item then
+    return
+  end
+  if item.groups then
+    minetest.remove_node(position)
+    first_person_shooter.play_node_sound(node, position)
+    if item.tiles then
+      if item.tiles[1] then
+        first_person_shooter.spawn_particles(position, { texture = item.tiles[1] })
+      end
+    end
+    --local object = minetest.add_item(position, item)
+    --if object then
+    --  object:set_velocity({
+    --    x = math.random(-1, 1),
+    --    y = 4,
+    --    z = math.random(-1, 1)
+    --  })
+    --end
+  end
+end
+
 first_person_shooter.spawn_projectile = function()
   local projectile = {}
   first_person_shooter.projectiles.insert(projectile)
@@ -167,23 +243,12 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
   )
   local muzzle_position = player_metadata:get_weapon_muzzle_position()
   local muzzle_direction = player_metadata:get_weapon_muzzle_direction()
-  local muzzle_velocity = { x = math.cos(muzzle_direction.x) * weapon_metadata.muzzle_velocity, y = muzzle_direction.y * weapon_metadata.muzzle_velocity, z = math.sin(muzzle_direction.x) * weapon_metadata.muzzle_velocity }
-  minetest.add_particlespawner({
-    amount = 1,
-    time = 0.1,
-    minpos = { x = muzzle_position.x, y = muzzle_position.y, z = muzzle_position.z },
-    maxpos = { x = muzzle_position.x, y = muzzle_position.y, z = muzzle_position.z },
-    minvel = muzzle_velocity,
-    maxvel = muzzle_velocity,
-    minacc = { x = 0, y = -9.8, z = 0 },
-    maxacc = { x = 0, y = -9.8, z = 0 },
-    minexptime = 0,
-    maxexptime = 3,
-    minsize = 1,
-    maxsize = 1,
-    collisiondetection = true,
-    texture = "bullet.png"
-  })
+  local projectile_raycast = minetest.raycast(muzzle_position, vector.add(muzzle_position, vector.multiply(muzzle_direction, 100)), true, true)
+  local hit_object = projectile_raycast:next() or { type = "nothing" }
+  if hit_object.type == "node" then
+    local hit_object_position = minetest.get_pointed_thing_position(hit_object, false)
+    first_person_shooter.punch_node(hit_object_position, spec)
+  end
 end
 
 --Register Weapons---------------------------------
@@ -267,10 +332,8 @@ first_person_shooter.initialize_player = function(player)
       }
     end,
     get_weapon_muzzle_direction = function(this)
-      return {
-        x = this.player:get_look_horizontal() + math.pi / 2,
-        y = -this.player:get_look_vertical()
-      }
+      local aim_compensation = { x = 0, y = -math.pi * 0.03, z = 0 }
+      return vector.add(this.player:get_look_dir(), aim_compensation)
     end,
   }
 end
