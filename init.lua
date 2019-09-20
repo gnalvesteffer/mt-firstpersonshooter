@@ -196,9 +196,12 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
       minetest.check_for_falling(node_position)
     else
       minetest.add_entity(
-          hit_info.hit_position,
+          vector.subtract(hit_info.hit_position, vector.multiply(hit_info.muzzle_direction, 0.01)),
           "first_person_shooter:bullet_hole",
-          minetest.serialize({ attached_node_position = node_position })
+          minetest.serialize({
+            attached_node_position = node_position,
+            rotation = hit_info.hit_normal,
+          })
       )
     end
 
@@ -256,6 +259,7 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
       muzzle_position = muzzle_position,
       muzzle_direction = muzzle_direction,
       hit_position = hit_object.intersection_point,
+      hit_normal = hit_object.intersection_normal,
     })
   elseif hit_object.type == "object" then
 
@@ -264,8 +268,9 @@ end
 
 minetest.register_entity("first_person_shooter:bullet_hole", {
   initial_properties = {
-    visual = "sprite",
-    visual_size = { x = 0.25, y = 0.25 },
+    visual = "mesh",
+    mesh = "plane.obj",
+    visual_size = { x = 1, y = 1 },
     textures = { "bullet_hole.png" },
     collisionbox = { 0, 0, 0, 0, 0, 0 },
     pointable = false,
@@ -276,11 +281,12 @@ minetest.register_entity("first_person_shooter:bullet_hole", {
     end
     static_data = minetest.deserialize(static_data) or {}
     self._attached_node_position = static_data.attached_node_position
+    self.object:set_rotation(static_data.rotation)
     self.object:set_armor_groups({ immortal = 1 })
   end,
   on_step = function(self, delta_time)
     self._life_time = self._life_time + delta_time
-    local attached_node = minetest.get_node(self._attached_node_position)
+    local attached_node = minetest.get_node(self._attached_node_position or { x = 0, y = 0, z = 0 })
     if self._life_time >= self._despawn_time or attached_node.name == "air" then
       self.object:remove()
     end
@@ -452,7 +458,7 @@ first_person_shooter.initialize_player = function(player)
       local player_position = this.player:get_pos()
       return {
         x = player_position.x + math.cos(horizontal_look_direction) * 0.5,
-        y = player_position.y + this.player:get_properties().eye_height - vertical_look_direction,
+        y = player_position.y + this.player:get_properties().eye_height - 0.05 - vertical_look_direction,
         z = player_position.z + math.sin(horizontal_look_direction) * 0.5,
       }
     end,
