@@ -139,7 +139,7 @@ end
 
 first_person_shooter.spawn_particles = function(position, particle_definition)
   particle_definition = particle_definition or {}
-  minetest.add_particlespawner({
+  return minetest.add_particlespawner({
     amount = particle_definition.amount or 15,
     time = particle_definition.time or 0.3,
     minpos = particle_definition.minpos or vector.subtract(position, { x = -0.1, y = -0.1, z = -0.1 }),
@@ -183,34 +183,43 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
   end
   if item.groups then
     local node_metadata = minetest.get_meta(node_position)
+
     local current_node_health = node_metadata:get_int("health")
     if current_node_health == 0 then
       current_node_health = 100 -- ToDo: look up default values based-on node type
     end
     local new_node_health = math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
     node_metadata:set_int("health", new_node_health)
+
     if new_node_health == 0 then
       minetest.remove_node(node_position)
+      minetest.check_for_falling(node_position)
+    else
+      minetest.add_entity(
+          hit_info.hit_position,
+          "first_person_shooter:bullet_hole",
+          minetest.serialize({ attached_node_position = node_position })
+      )
     end
-    minetest.check_for_falling(node_position)
+
     first_person_shooter.play_node_sound(node, node_position)
-    if item.tiles then
-      if item.tiles[1] then
-        first_person_shooter.spawn_particles(
-            node_position,
-            {
-              texture = item.tiles[1],
-              amount = 10,
-              time = 0.05,
-              minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.01), { x = -1, y = -1, z = -1 }),
-              maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.5), { x = 1, y = 1, z = 1 }),
-              minexptime = 0.05,
-              maxexptime = 0.5,
-              minsize = 0.25,
-              maxsize = 2,
-            })
-      end
+    if item.tiles and item.tiles[1] then
+      first_person_shooter.spawn_particles(
+          hit_info.hit_position,
+          {
+            texture = item.tiles[1],
+            amount = 10,
+            time = 0.05,
+            minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.01), { x = -1, y = -1, z = -1 }),
+            maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.5), { x = 1, y = 1, z = 1 }),
+            minexptime = 0.05,
+            maxexptime = 0.5,
+            minsize = 0.25,
+            maxsize = 2,
+          }
+      )
     end
+
     --local object = minetest.add_item(position, item)
     --if object then
     --  object:set_velocity({
@@ -246,9 +255,39 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
       weapon_metadata = weapon_metadata,
       muzzle_position = muzzle_position,
       muzzle_direction = muzzle_direction,
+      hit_position = hit_object.intersection_point,
     })
+  elseif hit_object.type == "object" then
+
   end
 end
+
+minetest.register_entity("first_person_shooter:bullet_hole", {
+  initial_properties = {
+    visual = "sprite",
+    visual_size = { x = 0.25, y = 0.25 },
+    textures = { "bullet_hole.png" },
+    collisionbox = { 0, 0, 0, 0, 0, 0 },
+    pointable = false,
+  },
+  on_activate = function(self, static_data)
+    if static_data == "" or static_data == nil then
+      return
+    end
+    static_data = minetest.deserialize(static_data) or {}
+    self._attached_node_position = static_data.attached_node_position
+    self.object:set_armor_groups({ immortal = 1 })
+  end,
+  on_step = function(self, delta_time)
+    self._life_time = self._life_time + delta_time
+    local attached_node = minetest.get_node(self._attached_node_position)
+    if self._life_time >= self._despawn_time or attached_node.name == "air" then
+      self.object:remove()
+    end
+  end,
+  _life_time = 0,
+  _despawn_time = 30,
+})
 
 --Register Weapons---------------------------------
 
