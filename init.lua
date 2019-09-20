@@ -412,14 +412,13 @@ first_person_shooter.initialize_player = function(player)
       local vertical_look_direction = this.player:get_look_vertical()
       local player_position = this.player:get_pos()
       return {
-        x = player_position.x + math.cos(horizontal_look_direction),
-        y = player_position.y + 1 - vertical_look_direction,
-        z = player_position.z + math.sin(horizontal_look_direction),
+        x = player_position.x + math.cos(horizontal_look_direction) * 0.5,
+        y = player_position.y + this.player:get_properties().eye_height - vertical_look_direction,
+        z = player_position.z + math.sin(horizontal_look_direction) * 0.5,
       }
     end,
     get_weapon_muzzle_direction = function(this)
-      local aim_compensation = { x = 0, y = -math.pi * 0.03, z = 0 }
-      return vector.add(this.player:get_look_dir(), aim_compensation)
+      return this.player:get_look_dir()
     end,
   }
 end
@@ -531,13 +530,13 @@ first_person_shooter.update_players = function(deltaTime)
       hud_elem_type = "image",
       text = animation_data.weapon_state_animation.texture_prefix .. "." .. animation_data.frame_number .. ".png",
       position = {
-        x = 0.5 - breathing_x_offset - movement_x_offset,
-        y = 0.55 - breathing_y_offset - movement_y_offset
+        x = 0.5,
+        y = 0.5,
       },
       scale = { x = -100, y = -100 },
       alignment = { x = 0, y = 0 },
       offset = { x = 0, y = 0 },
-      size = { x = 1280, y = 720 },
+      size = { x = 16, y = 9 },
     })
 
     local animation_duration = (animation_data.weapon_state_animation.total_frames - 1) / weapon_metadata.animation_framerate
