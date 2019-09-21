@@ -196,7 +196,7 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
       minetest.check_for_falling(node_position)
     else
       minetest.add_entity(
-          vector.subtract(hit_info.hit_position, vector.multiply(hit_info.muzzle_direction, 0.01)),
+          vector.subtract(hit_info.hit_position, vector.multiply(hit_info.muzzle_direction, 0.01)), -- compensate for z-fighting
           "first_person_shooter:bullet_hole",
           minetest.serialize({
             attached_node_position = node_position,
@@ -264,6 +264,9 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
   local muzzle_direction = player_metadata:get_weapon_muzzle_direction()
   local projectile_raycast = minetest.raycast(muzzle_position, vector.add(muzzle_position, vector.multiply(muzzle_direction, weapon_metadata.maximum_range)), true, true)
   local hit_object = projectile_raycast:next() or { type = "nothing" }
+  if hit_object.ref == player_metadata.player then
+    hit_object = projectile_raycast:next() or { type = "nothing" }
+  end
   if hit_object.type == "node" then
     local hit_node_position = minetest.get_pointed_thing_position(hit_object, false)
     first_person_shooter.on_node_hit(hit_node_position, {
@@ -293,7 +296,7 @@ minetest.register_entity("first_person_shooter:bullet_hole", {
     end
     static_data = minetest.deserialize(static_data) or {}
     self._attached_node_position = static_data.attached_node_position
-    self.object:set_rotation(vector.multiply({ x = static_data.rotation.z, y = static_data.rotation.y, z = static_data.rotation.x }, math.pi * 0.5))
+    self.object:set_rotation(vector.multiply({ x = static_data.rotation.z, y = static_data.rotation.y, z = static_data.rotation.x }, math.pi / 2))
     self.object:set_armor_groups({ immortal = 1 })
   end,
   on_step = function(self, delta_time)
@@ -465,17 +468,15 @@ first_person_shooter.initialize_player = function(player)
       return first_person_shooter.get_weapon_metadata(this.player:get_wielded_item():get_name())
     end,
     get_weapon_muzzle_position = function(this)
-      local horizontal_look_direction = this.player:get_look_horizontal() + math.pi / 2
-      local vertical_look_direction = this.player:get_look_vertical()
-      local player_position = this.player:get_pos()
+      local player_eye_position = vector.add(this.player:get_pos(), { x = 0, y = this.player:get_properties().eye_height, z = 0 })
       return {
-        x = player_position.x + math.cos(horizontal_look_direction) * 0.5,
-        y = player_position.y + this.player:get_properties().eye_height - vertical_look_direction,
-        z = player_position.z + math.sin(horizontal_look_direction) * 0.5,
+        x = player_eye_position.x,
+        y = player_eye_position.y,
+        z = player_eye_position.z,
       }
     end,
     get_weapon_muzzle_direction = function(this)
-      return this.player:get_look_dir()
+      return vector.multiply(this.player:get_look_dir(), math.pi / 2)
     end,
   }
 end
