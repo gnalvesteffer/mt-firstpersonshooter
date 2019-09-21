@@ -157,7 +157,7 @@ first_person_shooter.spawn_particles = function(position, particle_definition)
   })
 end
 
--- borrowed and modified from "shooter" mod by stu.
+-- adapted from "shooter" mod by stu.
 first_person_shooter.play_node_sound = function(node, pos)
   local item = minetest.registered_items[node.name]
   if item then
@@ -171,7 +171,7 @@ first_person_shooter.play_node_sound = function(node, pos)
   end
 end
 
--- borrowed and modified from "shooter" mod by stu.
+-- adapted from "shooter" mod by stu.
 first_person_shooter.on_node_hit = function(node_position, hit_info)
   local node = minetest.get_node(node_position)
   if not node then
@@ -234,6 +234,18 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
   end
 end
 
+first_person_shooter.on_object_hit = function(object, attacker_player_metadata)
+  object:punch(
+      attacker_player_metadata.player,
+      nil,
+      {
+        full_punch_interval = 1.0,
+        damage_groups = { fleshy = attacker_player_metadata:get_weapon_metadata().damage },
+      },
+      nil
+  )
+end
+
 first_person_shooter.on_weapon_fire = function(player_metadata)
   local weapon_metadata = player_metadata:get_weapon_metadata()
   if not weapon_metadata then
@@ -262,7 +274,7 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
       hit_normal = hit_object.intersection_normal,
     })
   elseif hit_object.type == "object" then
-
+    first_person_shooter.on_object_hit(hit_object.ref, player_metadata)
   end
 end
 
@@ -458,7 +470,7 @@ first_person_shooter.initialize_player = function(player)
       local player_position = this.player:get_pos()
       return {
         x = player_position.x + math.cos(horizontal_look_direction) * 0.5,
-        y = player_position.y + this.player:get_properties().eye_height - 0.05 - vertical_look_direction,
+        y = player_position.y + this.player:get_properties().eye_height - vertical_look_direction,
         z = player_position.z + math.sin(horizontal_look_direction) * 0.5,
       }
     end,
