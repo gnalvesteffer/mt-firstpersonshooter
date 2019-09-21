@@ -176,7 +176,38 @@ first_person_shooter.initial_node_properties_lookup_table = {
 
   },
   groups = {
-
+    ["cracky"] = {
+      health = 5,
+      penetration_durability = 0.05,
+    },
+    ["stone"] = {
+      health = 100,
+      penetration_durability = 1,
+    },
+    ["crumbly"] = {
+      health = 25,
+      penetration_durability = 0.25,
+    },
+    ["sand"] = {
+      health = 25,
+      penetration_durability = 0.5,
+    },
+    ["choppy"] = {
+      health = 20,
+      penetration_durability = 0.3,
+    },
+    ["wood"] = {
+      health = 50,
+      penetration_durability = 0.75,
+    },
+    ["leaves"] = {
+      health = -100,
+      penetration_durability = -5,
+    },
+    ["pane"] = {
+      health = -100,
+      penetration_durability = -5,
+    },
   },
 }
 
@@ -196,8 +227,8 @@ first_person_shooter.get_node_properties = function(node_name)
     for group_name, value in pairs(node_definition.groups) do
       local properties_by_group_name = first_person_shooter.initial_node_properties_lookup_table.groups[group_name]
       if properties_by_group_name ~= nil then
-        aggregate_node_properties.health = aggregate_node_properties.health + properties_by_group_name.health
-        aggregate_node_properties.penetration_durability = aggregate_node_properties.penetration_durability + properties_by_group_name.penetration_durability
+        aggregate_node_properties.health = aggregate_node_properties.health + (properties_by_group_name.health * value)
+        aggregate_node_properties.penetration_durability = aggregate_node_properties.penetration_durability + (properties_by_group_name.penetration_durability * value)
       end
     end
     return aggregate_node_properties
@@ -224,7 +255,7 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
     end
     local new_node_health = current_node_health
     if hit_info.weapon_metadata.penetration_power >= node_properties.penetration_durability then
-      math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
+      new_node_health = math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
     end
     node_metadata:set_int("health", new_node_health)
 
@@ -250,8 +281,8 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
             texture = item.tiles[1],
             amount = 10,
             time = 0.05,
-            minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.01), { x = -1, y = -1, z = -1 }),
-            maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.5), { x = 1, y = 1, z = 1 }),
+            minvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.05), { x = -1, y = -1, z = -1 }),
+            maxvel = vector.add(vector.multiply(hit_info.muzzle_direction, hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage * -0.2), { x = 1, y = 1, z = 1 }),
             minexptime = 0.05,
             maxexptime = 0.5,
             minsize = 0.25,
