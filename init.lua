@@ -171,7 +171,40 @@ first_person_shooter.play_node_sound = function(node, pos)
   end
 end
 
--- adapted from "shooter" mod by stu.
+first_person_shooter.initial_node_properties_lookup_table = {
+  names = {
+
+  },
+  groups = {
+
+  },
+}
+
+first_person_shooter.default_node_properties = {
+  health = 0,
+  penetration_durability = 0,
+}
+
+first_person_shooter.get_node_properties = function(node_name)
+  local properties_by_node_name = first_person_shooter.initial_node_properties_lookup_table.names[node_name]
+  if properties_by_node_name == nil then
+    local node_definition = minetest.registered_nodes[node_name]
+    if node_definition == nil then
+      return first_person_shooter.default_node_properties
+    end
+    local aggregate_node_properties = table.copy(first_person_shooter.default_node_properties)
+    for group_name, value in pairs(node_definition.groups) do
+      local properties_by_group_name = first_person_shooter.initial_node_properties_lookup_table.groups[group_name]
+      if properties_by_group_name ~= nil then
+        aggregate_node_properties.health = aggregate_node_properties.health + properties_by_group_name.health
+        aggregate_node_properties.penetration_durability = aggregate_node_properties.penetration_durability + properties_by_group_name.penetration_durability
+      end
+    end
+    return aggregate_node_properties
+  end
+  return properties_by_node_name
+end
+
 first_person_shooter.on_node_hit = function(node_position, hit_info)
   local node = minetest.get_node(node_position)
   if not node then
@@ -185,10 +218,14 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
     local node_metadata = minetest.get_meta(node_position)
 
     local current_node_health = node_metadata:get_int("health")
+    local node_properties = first_person_shooter.get_node_properties(node.name)
     if current_node_health == 0 then
-      current_node_health = 100 -- ToDo: look up default values based-on node type
+      current_node_health = node_properties.health
     end
-    local new_node_health = math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
+    local new_node_health = current_node_health
+    if hit_info.weapon_metadata.penetration_power >= node_properties.penetration_durability then
+      math.max(current_node_health - hit_info.weapon_metadata.penetration_power * hit_info.weapon_metadata.damage, 0)
+    end
     node_metadata:set_int("health", new_node_health)
 
     if new_node_health == 0 then
