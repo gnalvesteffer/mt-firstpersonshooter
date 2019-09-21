@@ -293,7 +293,7 @@ minetest.register_entity("first_person_shooter:bullet_hole", {
     end
     static_data = minetest.deserialize(static_data) or {}
     self._attached_node_position = static_data.attached_node_position
-    self.object:set_rotation(static_data.rotation)
+    self.object:set_rotation(vector.multiply({ x = static_data.rotation.z, y = static_data.rotation.y, z = static_data.rotation.x }, math.pi * 0.5))
     self.object:set_armor_groups({ immortal = 1 })
   end,
   on_step = function(self, delta_time)
@@ -396,7 +396,7 @@ first_person_shooter.register_weapon("first_person_shooter:hk53", {
   icon = "m16a2_icon.png",
   maximum_range = 100,
   penetration_power = 0.2,
-  damage = 10,
+  damage = 5,
   is_automatic_fire = true,
   animation_framerate = 120,
   animations = {
