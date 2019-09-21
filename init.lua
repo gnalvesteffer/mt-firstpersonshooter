@@ -234,13 +234,13 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
   end
 end
 
-first_person_shooter.on_object_hit = function(object, attacker_player_metadata)
+first_person_shooter.on_object_hit = function(object, player, damage)
   object:punch(
-      attacker_player_metadata.player,
+      player,
       nil,
       {
         full_punch_interval = 1.0,
-        damage_groups = { fleshy = attacker_player_metadata:get_weapon_metadata().damage },
+        damage_groups = { fleshy = damage },
       },
       nil
   )
@@ -274,7 +274,7 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
       hit_normal = hit_object.intersection_normal,
     })
   elseif hit_object.type == "object" then
-    first_person_shooter.on_object_hit(hit_object.ref, player_metadata)
+    first_person_shooter.on_object_hit(hit_object.ref, player_metadata.player, weapon_metadata.damage)
   end
 end
 
