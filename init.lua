@@ -25,22 +25,12 @@ local function dot_product(a, b)
   return result
 end
 
-local function get_player_2d_velocity_magnitude(player)
-  local velocity = player:get_player_velocity()
-  return math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-end
-
-local function get_player_3d_velocity_magnitude(player)
-  local velocity = player:get_player_velocity()
-  return math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
-end
-
 --Core---------------------------------------------
 
 first_person_shooter = {}
 first_person_shooter.tick_rate = 60
 first_person_shooter.last_update_time = 0
-first_person_shooter.maximum_speed_smoothing_samples = 3
+first_person_shooter.weapon_bob_amount = 0.1
 first_person_shooter.blood_emission_multiplier = 5
 first_person_shooter.players_metadata = {}
 first_person_shooter.registered_weapons = {}
@@ -127,6 +117,48 @@ first_person_shooter.weapon_state_animation_data_calculators = {
     }
   end,
 }
+
+first_person_shooter.next_weapon_state = {
+  ["idle"] = "idle",
+  ["aim_idle"] = "aim_idle",
+  ["aim_transition"] = "aim_idle",
+  ["aim_transition_reverse"] = "idle",
+  ["fire"] = "idle",
+  ["aim_fire"] = "aim_idle",
+  ["reload"] = "idle",
+}
+
+first_person_shooter.weapon_state_begin_handlers = {
+  ["idle"] = function(player_metadata)
+
+  end,
+  ["aim_idle"] = function(player_metadata)
+
+  end,
+  ["aim_transition"] = function(player_metadata)
+
+  end,
+  ["aim_transition_reverse"] = function(player_metadata)
+
+  end,
+  ["fire"] = function(player_metadata)
+    first_person_shooter.on_weapon_fire(player_metadata)
+  end,
+  ["aim_fire"] = function(player_metadata)
+    first_person_shooter.on_weapon_fire(player_metadata)
+  end,
+  ["reload"] = function(player_metadata)
+
+  end,
+}
+
+first_person_shooter.on_weapon_state_begin = function(player_metadata)
+  first_person_shooter.weapon_state_begin_handlers[player_metadata.weapon_state](player_metadata)
+end
+
+first_person_shooter.on_weapon_state_end = function(player_metadata)
+  player_metadata:set_weapon_state(first_person_shooter.next_weapon_state[player_metadata.weapon_state])
+end
 
 first_person_shooter.get_player_weapon_animation_data = function(player_metadata, weapon_metadata)
   return first_person_shooter.weapon_state_animation_data_calculators[player_metadata.weapon_state](player_metadata, weapon_metadata)
@@ -591,11 +623,6 @@ first_person_shooter.register_weapon("first_person_shooter:hk53", {
 --Player-------------------------------------------
 
 first_person_shooter.initialize_player = function(player)
-  local speed_smoothing_samples = {}
-  for speed_smoothing_sample_index = 0, first_person_shooter.maximum_speed_smoothing_samples do
-    speed_smoothing_samples[speed_smoothing_sample_index] = 0
-  end
-
   first_person_shooter.players_metadata[player:get_player_name()] = {
     player = player,
     life_time = 0,
@@ -603,15 +630,6 @@ first_person_shooter.initialize_player = function(player)
     weapon_state_time = 0,
     is_firing = false,
     has_handled_previous_fire_request = false,
-    movement_amount = 0,
-    speed_smoothing_samples = speed_smoothing_samples,
-    get_average_speed = function(this)
-      local speed_sample_sum = 0
-      for speed_smoothing_sample_index = 0, first_person_shooter.maximum_speed_smoothing_samples do
-        speed_sample_sum = speed_sample_sum + this.speed_smoothing_samples[speed_smoothing_sample_index]
-      end
-      return math.ceil(speed_sample_sum / first_person_shooter.maximum_speed_smoothing_samples)
-    end,
     set_weapon_state = function(this, weapon_state)
       this.weapon_state = weapon_state
       this.weapon_state_time = 0
@@ -620,60 +638,30 @@ first_person_shooter.initialize_player = function(player)
     get_weapon_metadata = function(this)
       return first_person_shooter.get_weapon_metadata(this.player:get_wielded_item():get_name())
     end,
+    get_eye_position = function(this)
+      return vector.add(this.player:get_pos(), { x = 0, y = this.player:get_properties().eye_height, z = 0 })
+    end,
     get_weapon_muzzle_position = function(this)
-      local player_eye_position = vector.add(this.player:get_pos(), { x = 0, y = this.player:get_properties().eye_height, z = 0 })
+      local eye_position = this:get_eye_position()
+      local player_velocity_magnitude = this:get_player_2d_velocity_magnitude()
       return {
-        x = player_eye_position.x,
-        y = player_eye_position.y,
-        z = player_eye_position.z,
+        x = eye_position.x + (math.cos(this.life_time * player_velocity_magnitude * 1.5) * clamp(player_velocity_magnitude, 0, 1) * first_person_shooter.weapon_bob_amount),
+        y = eye_position.y + (math.sin(this.life_time * player_velocity_magnitude * 3.5) * clamp(player_velocity_magnitude, 0, 1) * first_person_shooter.weapon_bob_amount),
+        z = eye_position.z,
       }
     end,
     get_weapon_muzzle_direction = function(this)
       return vector.multiply(this.player:get_look_dir(), math.pi / 2)
     end,
+    get_player_2d_velocity_magnitude = function(this)
+      local velocity = this.player:get_player_velocity()
+      return math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    end,
+    get_player_3d_velocity_magnitude = function(this)
+      local velocity = this.player:get_player_velocity()
+      return math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
+    end,
   }
-end
-
-first_person_shooter.next_weapon_state = {
-  ["idle"] = "idle",
-  ["aim_idle"] = "aim_idle",
-  ["aim_transition"] = "aim_idle",
-  ["aim_transition_reverse"] = "idle",
-  ["fire"] = "idle",
-  ["aim_fire"] = "aim_idle",
-  ["reload"] = "idle",
-}
-
-first_person_shooter.weapon_state_begin_handlers = {
-  ["idle"] = function(player_metadata)
-
-  end,
-  ["aim_idle"] = function(player_metadata)
-
-  end,
-  ["aim_transition"] = function(player_metadata)
-
-  end,
-  ["aim_transition_reverse"] = function(player_metadata)
-
-  end,
-  ["fire"] = function(player_metadata)
-    first_person_shooter.on_weapon_fire(player_metadata)
-  end,
-  ["aim_fire"] = function(player_metadata)
-    first_person_shooter.on_weapon_fire(player_metadata)
-  end,
-  ["reload"] = function(player_metadata)
-
-  end,
-}
-
-first_person_shooter.on_weapon_state_begin = function(player_metadata)
-  first_person_shooter.weapon_state_begin_handlers[player_metadata.weapon_state](player_metadata)
-end
-
-first_person_shooter.on_weapon_state_end = function(player_metadata)
-  player_metadata:set_weapon_state(first_person_shooter.next_weapon_state[player_metadata.weapon_state])
 end
 
 first_person_shooter.update_players = function(deltaTime)
@@ -719,38 +707,24 @@ first_person_shooter.update_players = function(deltaTime)
     player_metadata.life_time = player_metadata.life_time + deltaTime
     player_metadata.weapon_state_time = player_metadata.weapon_state_time + deltaTime
 
-    local player_velocity_magnitude = get_player_2d_velocity_magnitude(player_metadata.player)
-    player_metadata.speed_smoothing_samples[math.floor(player_metadata.life_time * 100 % first_person_shooter.maximum_speed_smoothing_samples)] = player_velocity_magnitude
-    local average_speed = player_metadata:get_average_speed()
-
-    if average_speed == 0 then
-      player_metadata.movement_amount = player_metadata.movement_amount - deltaTime
-    else
-      player_metadata.movement_amount = player_metadata.movement_amount + deltaTime
-    end
-    player_metadata.movement_amount = clamp(player_metadata.movement_amount, 0, 1)
-
-    local breathing_x_offset = math.cos(player_metadata.life_time) * 0.002
-    local breathing_y_offset = math.sin(player_metadata.life_time * 1.25) * 0.005
-    local movement_x_offset = (math.sin(player_metadata.life_time * average_speed * 1.5) * 0.012) * player_metadata.movement_amount
-    local movement_y_offset = (math.sin(player_metadata.life_time * average_speed * 3) * 0.013) * player_metadata.movement_amount
-
-    local animation_data = first_person_shooter.get_player_weapon_animation_data(player_metadata, weapon_metadata)
+    local weapon_muzzle_position = player_metadata:get_weapon_muzzle_position()
+    local weapon_muzzle_position_camera_offset = vector.subtract(weapon_muzzle_position, player_metadata:get_eye_position())
+    local weapon_animation_data = first_person_shooter.get_player_weapon_animation_data(player_metadata, weapon_metadata)
     player_metadata.player:hud_remove(player_metadata.weapon_hud_element)
     player_metadata.weapon_hud_element = player_metadata.player:hud_add({
       hud_elem_type = "image",
-      text = animation_data.weapon_state_animation.texture_prefix .. "." .. animation_data.frame_number .. ".png",
+      text = weapon_animation_data.weapon_state_animation.texture_prefix .. "." .. weapon_animation_data.frame_number .. ".png",
       position = {
-        x = 0.5,
-        y = 0.5,
+        x = 0.5 - (weapon_muzzle_position_camera_offset.x * first_person_shooter.weapon_bob_amount),
+        y = 0.5 - (weapon_muzzle_position_camera_offset.y * first_person_shooter.weapon_bob_amount),
       },
-      scale = { x = -100, y = -100 },
+      scale = { x = (1 + first_person_shooter.weapon_bob_amount) * -100, y = (1 + first_person_shooter.weapon_bob_amount) * -100 },
       alignment = { x = 0, y = 0 },
       offset = { x = 0, y = 0 },
       size = { x = 16, y = 9 },
     })
 
-    local animation_duration = (animation_data.weapon_state_animation.total_frames - 1) / weapon_metadata.animation_framerate
+    local animation_duration = (weapon_animation_data.weapon_state_animation.total_frames - 1) / weapon_metadata.animation_framerate
     if player_metadata.weapon_state_time >= animation_duration then
       first_person_shooter.on_weapon_state_end(player_metadata)
     end
