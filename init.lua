@@ -217,6 +217,10 @@ first_person_shooter.initial_node_properties_lookup_table = {
       health = 50,
       penetration_durability = 0.75,
     },
+    ["tree"] = {
+      health = 150,
+      penetration_durability = 0.75,
+    },
     ["leaves"] = {
       health = -100,
       penetration_durability = -5,
