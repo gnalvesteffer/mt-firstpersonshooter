@@ -9,6 +9,22 @@ local function clamp(num, lower, upper)
   return math.max(lower, math.min(upper, num))
 end
 
+local function cross_product(a, b)
+  return {
+    x = a.y * b.z - a.z * b.y,
+    y = a.z * b.x - a.x * b.z,
+    z = a.x * b.y - a.y * b.x
+  }
+end
+
+local function dot_product(a, b)
+  local result = 0
+  for i = 1, #a do
+    result = result + a[i] * b[i]
+  end
+  return result
+end
+
 local function get_player_2d_velocity_magnitude(player)
   local velocity = player:get_player_velocity()
   return math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
@@ -25,6 +41,7 @@ first_person_shooter = {}
 first_person_shooter.tick_rate = 60
 first_person_shooter.last_update_time = 0
 first_person_shooter.maximum_speed_smoothing_samples = 3
+first_person_shooter.blood_emission_multiplier = 5
 first_person_shooter.players_metadata = {}
 first_person_shooter.registered_weapons = {}
 
@@ -263,14 +280,7 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
       minetest.remove_node(node_position)
       minetest.check_for_falling(node_position)
     else
-      minetest.add_entity(
-          vector.subtract(hit_info.hit_position, vector.multiply(hit_info.muzzle_direction, 0.01)), -- compensate for z-fighting
-          "first_person_shooter:bullet_hole",
-          minetest.serialize({
-            attached_node_position = node_position,
-            rotation = hit_info.hit_normal,
-          })
-      )
+      first_person_shooter.create_bullet_hole(hit_info.hit_position, hit_info.hit_normal, node_position)
     end
 
     first_person_shooter.play_node_sound(node, node_position)
@@ -302,15 +312,20 @@ first_person_shooter.on_node_hit = function(node_position, hit_info)
   end
 end
 
-first_person_shooter.on_object_hit = function(object, player, damage)
+first_person_shooter.on_object_hit = function(object, attacker, hit_info)
   object:punch(
-      player,
+      attacker,
       nil,
       {
         full_punch_interval = 1.0,
-        damage_groups = { fleshy = damage },
+        damage_groups = { fleshy = hit_info.weapon_metadata.damage },
       },
       nil
+  )
+  first_person_shooter.emit_blood(
+      hit_info.hit_position,
+      hit_info.muzzle_direction,
+      math.ceil(hit_info.weapon_metadata.damage * hit_info.weapon_metadata.penetration_power) * first_person_shooter.blood_emission_multiplier
   )
 end
 
@@ -335,17 +350,18 @@ first_person_shooter.on_weapon_fire = function(player_metadata)
   if hit_object.ref == player_metadata.player then
     hit_object = projectile_raycast:next() or { type = "nothing" }
   end
+  local hit_info = {
+    weapon_metadata = weapon_metadata,
+    muzzle_position = muzzle_position,
+    muzzle_direction = muzzle_direction,
+    hit_position = hit_object.intersection_point,
+    hit_normal = hit_object.intersection_normal,
+  }
   if hit_object.type == "node" then
     local hit_node_position = minetest.get_pointed_thing_position(hit_object, false)
-    first_person_shooter.on_node_hit(hit_node_position, {
-      weapon_metadata = weapon_metadata,
-      muzzle_position = muzzle_position,
-      muzzle_direction = muzzle_direction,
-      hit_position = hit_object.intersection_point,
-      hit_normal = hit_object.intersection_normal,
-    })
+    first_person_shooter.on_node_hit(hit_node_position, hit_info)
   elseif hit_object.type == "object" then
-    first_person_shooter.on_object_hit(hit_object.ref, player_metadata.player, weapon_metadata.damage)
+    first_person_shooter.on_object_hit(hit_object.ref, player_metadata.player, hit_info)
   end
 end
 
@@ -357,6 +373,7 @@ minetest.register_entity("first_person_shooter:bullet_hole", {
     textures = { "bullet_hole.png" },
     collisionbox = { 0, 0, 0, 0, 0, 0 },
     pointable = false,
+    static_save = false,
   },
   on_activate = function(self, static_data)
     if static_data == "" or static_data == nil then
@@ -377,6 +394,70 @@ minetest.register_entity("first_person_shooter:bullet_hole", {
   _life_time = 0,
   _despawn_time = 30,
 })
+
+first_person_shooter.create_bullet_hole = function(position, surface_normal, attached_node_position)
+  minetest.add_entity(
+      vector.add(position, vector.multiply(surface_normal, 0.01)),
+      "first_person_shooter:bullet_hole",
+      minetest.serialize({
+        attached_node_position = attached_node_position,
+        rotation = surface_normal,
+      })
+  )
+end
+
+minetest.register_entity("first_person_shooter:blood_drop", {
+  initial_properties = {
+    visual = "mesh",
+    mesh = "plane.obj",
+    visual_size = { x = 0.15, y = 0.15 },
+    textures = { "blood_drop.png" },
+    collisionbox = { 0, 0, 0, 0, 0, 0 },
+    pointable = false,
+    static_save = false,
+  },
+  on_activate = function(self, static_data)
+    if static_data == "" or static_data == nil then
+      return
+    end
+    static_data = minetest.deserialize(static_data) or {}
+    self._attached_node_position = static_data.attached_node_position
+    self.object:set_rotation(vector.multiply({ x = static_data.rotation.z, y = static_data.rotation.y, z = static_data.rotation.x }, math.pi / 2))
+    self.object:set_armor_groups({ immortal = 1 })
+  end,
+  on_step = function(self, delta_time)
+    self._life_time = self._life_time + delta_time
+    local attached_node = minetest.get_node(self._attached_node_position or { x = 0, y = 0, z = 0 })
+    if self._life_time >= self._despawn_time or attached_node.name == "air" then
+      self.object:remove()
+    end
+  end,
+  _life_time = 0,
+  _despawn_time = 30,
+})
+
+first_person_shooter.emit_blood = function(position, direction, amount)
+  for blood_drop_iteration = 0, amount do
+    local random_direction = vector.multiply({ x = 1 - math.random() * 2, y = 1 - math.random() * 2, z = 1 - math.random() * 2 }, math.random() * 0.25)
+    local blood_drop_direction = vector.add(direction, random_direction)
+    local blood_drop_raycast = minetest.raycast(position, vector.add(position, vector.multiply(blood_drop_direction, 2)), false, false)
+    local colliding_object = blood_drop_raycast:next() or { type = "nothing" }
+    if colliding_object.type ~= "node" then
+      colliding_object = blood_drop_raycast:next() or { type = "nothing" }
+    end
+    if colliding_object.type == "node" then
+      local attached_node_position = minetest.get_pointed_thing_position(colliding_object, false)
+      minetest.add_entity(
+          vector.add(colliding_object.intersection_point, vector.multiply(colliding_object.intersection_normal, 0.01)),
+          "first_person_shooter:blood_drop",
+          minetest.serialize({
+            attached_node_position = attached_node_position,
+            rotation = colliding_object.intersection_normal,
+          })
+      )
+    end
+  end
+end
 
 --Register Weapons---------------------------------
 
